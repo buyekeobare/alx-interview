@@ -1,54 +1,53 @@
 #!/usr/bin/python3
+""" the log parsing task"""
 
 import sys
+import re
+from collections import defaultdict
+
+"""Compile the regex pattern to match the log format"""
+pattern = re.compile(
+    r'(\d+\.\d+\.\d+\.\d+)'    # IP Address
+    r' - \[.+?\] '              # Date in square brackets
+    r'"GET /projects/260 HTTP/1.1" '
+    r'(\d+) '                   # Status code
+    r'(\d+)'                    # File size
+)
+
+"""Initialize variables"""
+total_size = 0
+status_counts = defaultdict(int)
+line_count = 0
+
+"""Define a function to print the metrics"""
 
 
-def print_msg(dict_sc, total_file_size):
-    """
-    Method to print
-    Args:
-        dict_sc: dict of status codes
-        total_file_size: total of the file
-    Returns:
-        Nothing
-    """
-
-    print("File size: {}".format(total_file_size))
-    for key, val in sorted(dict_sc.items()):
-        if val != 0:
-            print("{}: {}".format(key, val))
+def print_metrics():
+    print(f"File size: {total_size}")
+    for status in sorted(status_counts.keys()):
+        if status_counts[status] > 0:
+            print(f"{status}: {status_counts[status]}")
 
 
-total_file_size = 0
-code = 0
-counter = 0
-dict_sc = {"200": 0,
-           "301": 0,
-           "400": 0,
-           "401": 0,
-           "403": 0,
-           "404": 0,
-           "405": 0,
-           "500": 0}
-
+"""Read from standard input line by line"""
 try:
     for line in sys.stdin:
-        parsed_line = line.split()  # ✄ trimming
-        parsed_line = parsed_line[::-1]  # inverting
+        match = pattern.match(line)
+        if match:
+            """Extract the status code and file size"""
+            status_code = match.group(2)
+            file_size = int(match.group(3))
+            # Update the total file size and status code count
+            total_size += file_size
+            status_counts[status_code] += 1
+        line_count += 1
+        # Print metrics every 10 lines
+        if line_count % 10 == 0:
+            print_metrics()
+except KeyboardInterrupt:
+    # Print final metrics if interrupted
+    print_metrics()
+    sys.exit()
 
-        if len(parsed_line) > 2:
-            counter += 1
-
-            if counter <= 10:
-                total_file_size += int(parsed_line[0])  # file size
-                code = parsed_line[1]  # status code
-
-                if (code in dict_sc.keys()):
-                    dict_sc[code] += 1
-
-            if (counter == 10):
-                print_msg(dict_sc, total_file_size)
-                counter = 0
-
-finally:
-    print_msg(dict_sc, total_file_size)
+# Final print after reading all lines
+print_metrics()
